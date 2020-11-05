@@ -13,45 +13,57 @@ stages:
     displayName: 'Build job'
     pool:
       vmImage: 'ubuntu-16.04'
-      demands:
-       - npm
     variables:
       wwwrootDir: 'wwwroot'
       
     steps:
     - script: echo build
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        options: '-Dmaven.test.skip=true'
+        publishJUnitResults: false
+        javaHomeOption: 'JDKVersion'
+        mavenVersionOption: 'Default'
+        mavenAuthenticateFeed: false
+        effectivePomSkip: false
+        sonarQubeRunAnalysis: false
         
   - job: 'RunUnitTest'
     displayName: 'Unit Test & Coverage Job'    
     steps:
     - script: echo unit test
-    - task: NodeTool@0 
+    - task: Maven@3
       inputs:
-        versionSpec: 12.x
-    - script: npm install
-    - script: npm test
-    - task: PublishTestResults@2
-      condition: succeededOrFailed()
-      inputs:
-        testRunner: JUnit
-        testResultsFiles: '**/test-results.xml'
+        mavenPomFile: 'pom.xml'
+        goals: 'test'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        codeCoverageToolOption: 'Cobertura'
+        javaHomeOption: 'JDKVersion'
+        mavenVersionOption: 'Default'
+        mavenAuthenticateFeed: false
+        effectivePomSkip: false
+        sonarQubeRunAnalysis: false
   
   - job: 'SonarQubeScanner'
     displayName: 'SonarQube Scanner'
     steps:
       - script: echo SonarQube Scanner
-      - script: |
-          curl https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.5.0.2216.zip --output sonarInstall.zip
-          unzip sonarInstall.zip
-        displayName: Install Sonar Scanner
-      - task: NodeTool@0 
+      - task: SonarQubePrepare@4
         inputs:
-         versionSpec: 12.x
-      - script: npm install
-      - script: npm test
-      - script: |
-          ./sonar-scanner-4.5.0.2216/bin/sonar-scanner -Dsonar.projectKey=Test-DevOps -Dsonar.sources=. -Dsonar.host.url=http://54.92.154.189:9000 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.exclusions=node_modules/**,coverage/**,.nyc_output/**,test/**,test-results.xml -Dsonar.login=db2c19be53af58f692f2ae2827fbbadab8e1a058
-        displayName: Sonar Scanner Run
+          SonarQube: 'SonarQube'
+          scannerMode: 'Other'
+      - task: Maven@3
+        inputs:
+          mavenPomFile: 'pom.xml'
+          publishJUnitResults: false
+          javaHomeOption: 'JDKVersion'
+          mavenVersionOption: 'Default'
+          mavenAuthenticateFeed: false
+          effectivePomSkip: false
+          sonarQubeRunAnalysis: true
+          sqMavenPluginVersionChoice: 'latest'
         
 - stage: 'DeployDev'
   displayName: 'Deploy Dev'
